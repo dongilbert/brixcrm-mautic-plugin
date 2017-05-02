@@ -3,20 +3,11 @@
 namespace MauticPlugin\MauticBrixCRMBundle\Integration;
 
 use MauticPlugin\MauticCrmBundle\Integration\SugarcrmIntegration;
-use Mautic\LeadBundle\Entity\Lead;
 
 class BrixCRMIntegration extends SugarcrmIntegration {
 
 	public function getName() {
 		return 'BrixCRM';
-	}
-
-	public function populateLeadData($lead, $config = []) {
-		$matched =  parent::populateLeadData($lead, $config);
-		if (isset($config['mautic_id']) && $lead instanceof Lead) {
-			$matched[$config['mautic_id']] = $lead->getId();
-		}
-		return $matched;
 	}
 
 	public function getApiHelper() {
@@ -30,14 +21,56 @@ class BrixCRMIntegration extends SugarcrmIntegration {
 	}
 
 	public function appendToForm(&$builder, $data, $formArea) {
+		$leadBooleanFields = $this->factory->getModel('lead.field')->getFieldList(false, false, [
+			'isPublished' => true,
+			'object' => 'lead',
+			'type' => 'boolean'
+		]);
 		if ($formArea == 'features') {
-			$builder->add('mautic_id', 'text', [
-				'label' => 'mautic.brixcrm.form.mautic_id',
+			$builder->add('sugar_sync_flag', 'choice', [
+				'label' => 'mautic.brixcrm.form.sugar_sync_flag',
 				'label_attr' => ['class' => 'control-label'],
 				'attr' => ['class' => 'form-control'],
 				'required' => false,
+				'choices' => $leadBooleanFields,
 			]);
 		}
-		parent::appendToForm($builder, $data, $formArea);
+		if ($formArea == 'keys') {
+			$builder->add('version', 'button_group', [
+				'choices' => [
+					'7' => '7.x',
+				],
+				'label'       => 'mautic.sugarcrm.form.version',
+				'constraints' => [
+					new NotBlank([
+						'message' => 'mautic.core.value.required',
+					]),
+				],
+				'required' => true,
+			]);
+		}
+	}
+
+	public function getFormLeadFields($settings = []) {
+		return [];
+	}
+
+	public function getFormCompanyFields($settings = []) {
+		return [];
+	}
+
+	public function pushLead($lead, $config = [])
+	{
+		try {
+			if ($this->isAuthorized()) {
+				$this->getApiHelper()->addToSugarQueue($lead);
+
+				return true;
+			}
+		} catch (\Exception $e) {
+			$this->logIntegrationError($e);
+		}
+
+		return false;
 	}
 }

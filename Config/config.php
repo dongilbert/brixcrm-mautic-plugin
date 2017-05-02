@@ -5,12 +5,14 @@ return [
 	'description' => 'Custom BrixCRM extensions',
 	'version' => '1.0',
 	'author' => 'BrixCRM',
-	'routes' => [
-		'api' => [
-			'brixcrm_event_api' => [
-				'path' => '/contacts/{id}/events',
-				'controller' => 'MauticBrixCRMBundle:BrixCRMEventsApi:index',
+	'services' => [
+		'events' => [
+			'mautic.brixcrm.leadbundle.subscriber' => [
+				'class' => 'MauticPlugin\MauticBrixCRMBundle\EventListener\LeadSubscriber',
+				'arguments' => [
+					'mautic.helper.ip_lookup',
+				],
 			],
-		]
-	]
+		],
+	],
 ];
