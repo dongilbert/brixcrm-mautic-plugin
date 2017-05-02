@@ -8,14 +8,13 @@ class BrixCRMApi extends SugarcrmApi {
 
 	public function addToSugarQueue($lead) {
 		$data = [
-			'sender' => 'mautic',
-			'action' => 'create',
-			'mautic_type' => 'contact',
-			'mautic_id' => $lead->getId(),
+			'event' => 'push',
+			'entity' => 'contact',
+			'id' => $lead->getId(),
 
 		];
 
-		return $this->request('BRX_MauticQueue', $data, 'POST');
+		return $this->request('Mautic/receiveRequest', $data, 'POST');
 	}
 
 }
