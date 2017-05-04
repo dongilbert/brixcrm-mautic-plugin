@@ -3,6 +3,7 @@
 namespace MauticPlugin\MauticBrixCRMBundle\Integration;
 
 use MauticPlugin\MauticCrmBundle\Integration\SugarcrmIntegration;
+use Symfony\Component\Validator\Constraints\NotBlank;
 
 class BrixCRMIntegration extends SugarcrmIntegration {
 
