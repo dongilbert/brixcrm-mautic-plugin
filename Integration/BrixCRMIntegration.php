@@ -11,6 +11,10 @@ class BrixCRMIntegration extends SugarcrmIntegration {
 		return 'BrixCRM';
 	}
 
+	public function getSupportedFeatures() {
+		return ['push_lead'];
+	}
+
 	public function getApiHelper() {
 		static $helper;
 		if (empty($helper)) {
@@ -41,7 +45,7 @@ class BrixCRMIntegration extends SugarcrmIntegration {
 				'choices' => [
 					'7' => '7.x',
 				],
-				'label'       => 'mautic.sugarcrm.form.version',
+				'label' => 'mautic.sugarcrm.form.version',
 				'constraints' => [
 					new NotBlank([
 						'message' => 'mautic.core.value.required',
@@ -60,8 +64,7 @@ class BrixCRMIntegration extends SugarcrmIntegration {
 		return [];
 	}
 
-	public function pushLead($lead, $config = [])
-	{
+	public function pushLead($lead, $config = []) {
 		try {
 			if ($this->isAuthorized()) {
 				$this->getApiHelper()->addToSugarQueue($lead);
