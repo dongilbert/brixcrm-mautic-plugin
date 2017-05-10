@@ -70,6 +70,8 @@ class BrixCRMIntegration extends SugarcrmIntegration {
 				$this->getApiHelper()->addToSugarQueue($lead);
 
 				return true;
+			} else {
+				throw new \Exception('BrixCRMIntegration: Not authorized');
 			}
 		} catch (\Exception $e) {
 			$this->logIntegrationError($e);
