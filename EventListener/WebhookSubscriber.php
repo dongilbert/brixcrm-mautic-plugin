@@ -54,7 +54,7 @@ class WebhookSubscriber extends CommonSubscriber {
 	 * @param LeadEvent $event
 	 */
 	public function onLeadPostSave(LeadEvent $event) {
-		if (!$event->isNew() && !$this->request->headers->has('SugarCRM')) {
+		if (!$event->isNew() && $this->request && !$this->request->headers->has('SugarCRM')) {
 			$integration = $this->helper->getIntegrationObject('BrixCRM');
 
 			if ($integration && $integration->getIntegrationSettings()->getIsPublished()) {

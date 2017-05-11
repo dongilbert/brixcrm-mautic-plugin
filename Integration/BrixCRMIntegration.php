@@ -4,6 +4,7 @@ namespace MauticPlugin\MauticBrixCRMBundle\Integration;
 
 use MauticPlugin\MauticCrmBundle\Integration\SugarcrmIntegration;
 use Symfony\Component\Validator\Constraints\NotBlank;
+use Mautic\PluginBundle\Entity\Integration;
 
 class BrixCRMIntegration extends SugarcrmIntegration {
 
@@ -64,10 +65,24 @@ class BrixCRMIntegration extends SugarcrmIntegration {
 		return [];
 	}
 
+	public function cleanUpFields(Integration $entity, array $mauticLeadFields, array $mauticCompanyFields) {
+		$featureSettings = $entity->getFeatureSettings();
+		$entity->setFeatureSettings($featureSettings);
+
+		return [];
+	}
+
 	public function pushLead($lead, $config = []) {
 		try {
 			if ($this->isAuthorized()) {
 				$this->getApiHelper()->addToSugarQueue($lead);
+
+				$settings = $this->getIntegrationSettings()->getFeatureSettings();
+				if (isset($settings['sugar_sync_flag'])) {
+					$lead->addUpdatedField($settings['sugar_sync_flag'], true);
+					$leadModel = $this->factory->getModel('lead');
+					$leadModel->saveEntity($lead, false);
+				}
 
 				return true;
 			} else {

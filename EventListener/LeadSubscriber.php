@@ -34,7 +34,7 @@ class LeadSubscriber extends CommonSubscriber {
 	 * @param LeadEvent $event
 	 */
 	public function onLeadPreSave(LeadEvent $event) {
-		if ($this->request->headers->has('SugarCRM')) {
+		if ($this->request && $this->request->headers->has('SugarCRM')) {
 			$integration = $this->helper->getIntegrationObject('BrixCRM');
 
 			if ($integration && $integration->getIntegrationSettings()->getIsPublished()) {
