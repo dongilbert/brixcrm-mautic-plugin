@@ -27,6 +27,7 @@ class LeadSubscriber extends CommonSubscriber {
 	public static function getSubscribedEvents() {
 		return [
 			LeadEvents::LEAD_PRE_SAVE => ['onLeadPreSave', 0],
+			LeadEvents::LEAD_POST_SAVE => ['onLeadPostSave', 0],
 		];
 	}
 
@@ -38,10 +39,25 @@ class LeadSubscriber extends CommonSubscriber {
 			$integration = $this->helper->getIntegrationObject('BrixCRM');
 
 			if ($integration && $integration->getIntegrationSettings()->getIsPublished()) {
-				$settings = $integration->getIntegrationSettings()->getFeatureSettings();
+				$integration->updateIntegrationEntity($event->getLead());
+			}
+		}
+	}
 
-				if (isset($settings['sugar_sync_flag'])) {
-					$event->getLead()->addUpdatedField($settings['sugar_sync_flag'], true);
+	/**
+	 * @param LeadEvent $event
+	 */
+	public function onLeadPostSave(LeadEvent $event) {
+		if (!$event->isNew() && (!$this->request || !$this->request->headers->has('SugarCRM'))) {
+			$integration = $this->helper->getIntegrationObject('BrixCRM');
+
+			if ($integration && $integration->getIntegrationSettings()->getIsPublished()) {
+				$integrationEntityRepo = $this->em->getRepository('MauticPluginBundle:IntegrationEntity');
+				$integrationId = $integrationEntityRepo->getIntegrationsEntityId($integration->getName(), $integration->getIntegrationObject(), 'lead', $event->getLead()->getId());
+
+				if (!empty($integrationId)) {
+					$integration->getApiHelper()->addToSugarQueue($event->getLead(), 'save');
+					$integration->updateIntegrationEntity($event->getLead());
 				}
 			}
 		}
