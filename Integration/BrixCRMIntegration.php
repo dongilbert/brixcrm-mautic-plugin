@@ -45,12 +45,32 @@ class BrixCRMIntegration extends CrmAbstractIntegration {
 		return 'oauth2';
 	}
 
-	public function getClientIdKey() {
-		return 'sugar';
+	public function setIntegrationSettings(Integration $settings) {
+		parent::setIntegrationSettings($settings);
+		$this->keys['client_id'] = 'sugar';
+		$this->keys['client_secret'] = '';
 	}
 
-	public function getClientSecretKey() {
-		return '';
+	public function prepareRequest($url, $parameters, $method, $settings, $authType)
+	{
+		if ($authType == 'oauth2' && empty($settings['authorize_session']) && isset($this->keys['access_token'])) {
+			// Append the access token as the oauth-token header
+			$headers = [
+				"oauth-token: {$this->keys['access_token']}",
+			];
+
+			return [$parameters, $headers];
+		} else {
+			return parent::prepareRequest($url, $parameters, $method, $settings, $authType);
+		}
+	}
+
+	public function getRefreshTokenKeys()
+	{
+		return [
+			'refresh_token',
+			'expires',
+		];
 	}
 
 	public function getAccessTokenUrl() {
