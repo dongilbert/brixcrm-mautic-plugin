@@ -150,4 +150,16 @@ class BrixCRMIntegration extends CrmAbstractIntegration {
 	public function getIntegrationObject() {
 		return 'Lead/Contact';
 	}
+
+	public function mergeApiKeys($mergeKeys, $withKeys = [], $return = false){
+		if(array_key_exists('expires_in', $mergeKeys)){
+			$mergeKeys['expires_in'] = time()+$mergeKeys['expires_in'];
+		}
+
+		if(array_key_exists('refresh_expires_in', $mergeKeys)){
+			$mergeKeys['refresh_expires_in'] = time()+$mergeKeys['refresh_expires_in'];
+		}
+
+		return parent::mergeApiKeys($mergeKeys, $withKeys, $return);
+	}
 }
