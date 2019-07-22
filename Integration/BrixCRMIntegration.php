@@ -2,11 +2,12 @@
 
 namespace MauticPlugin\MauticBrixCRMBundle\Integration;
 
-use MauticPlugin\MauticCrmBundle\Integration\SugarcrmIntegration;
-use Symfony\Component\Validator\Constraints\NotBlank;
+use Mautic\LeadBundle\Entity\Lead;
+use Mautic\PluginBundle\Entity\IntegrationEntity;
+use MauticPlugin\MauticCrmBundle\Integration\CrmAbstractIntegration;
 use Mautic\PluginBundle\Entity\Integration;
 
-class BrixCRMIntegration extends SugarcrmIntegration {
+class BrixCRMIntegration extends CrmAbstractIntegration {
 
 	public function getName() {
 		return 'BrixCRM';
@@ -26,38 +27,75 @@ class BrixCRMIntegration extends SugarcrmIntegration {
 		return $helper;
 	}
 
-	public function appendToForm(&$builder, $data, $formArea) {
-		$leadBooleanFields = $this->factory->getModel('lead.field')->getFieldList(false, false, [
-			'isPublished' => true,
-			'object' => 'lead',
-			'type' => 'boolean'
-		]);
-		if ($formArea == 'features') {
-			$builder->add('sugar_sync_flag', 'choice', [
-				'label' => 'mautic.brixcrm.form.sugar_sync_flag',
-				'label_attr' => ['class' => 'control-label'],
-				'attr' => ['class' => 'form-control'],
-				'required' => false,
-				'choices' => $leadBooleanFields,
-			]);
-		}
-		if ($formArea == 'keys') {
-			$builder->add('version', 'button_group', [
-				'choices' => [
-					'7' => '7.x',
-				],
-				'label' => 'mautic.sugarcrm.form.version',
-				'constraints' => [
-					new NotBlank([
-						'message' => 'mautic.core.value.required',
-					]),
-				],
-				'required' => true,
-			]);
+	public function getRequiredKeyFields() {
+		return [
+			'sugarcrm_url' => 'mautic.sugarcrm.form.url',
+			'username' => 'mautic.sugarcrm.form.username',
+			'password' => 'mautic.sugarcrm.form.password',
+		];
+	}
+
+	public function getSecretKeys() {
+		return [
+			'password',
+		];
+	}
+
+	public function getAuthenticationType() {
+		return 'oauth2';
+	}
+
+	public function setIntegrationSettings(Integration $settings) {
+		parent::setIntegrationSettings($settings);
+		$this->keys['client_id'] = 'sugar';
+		$this->keys['client_secret'] = '';
+	}
+
+	public function prepareRequest($url, $parameters, $method, $settings, $authType)
+	{
+		if ($authType == 'oauth2' && empty($settings['authorize_session']) && isset($this->keys['access_token'])) {
+			// Append the access token as the oauth-token header
+			$headers = [
+				"oauth-token: {$this->keys['access_token']}",
+			];
+
+			return [$parameters, $headers];
+		} else {
+			return parent::prepareRequest($url, $parameters, $method, $settings, $authType);
 		}
 	}
 
-	public function getFormLeadFields($settings = []) {
+	public function getRefreshTokenKeys()
+	{
+		return [
+			'refresh_token',
+			'expires',
+		];
+	}
+
+	public function getAccessTokenUrl() {
+		return sprintf('%s/%s', $this->keys['sugarcrm_url'], 'rest/v10/oauth2/token');
+	}
+
+	public function getAuthLoginUrl() {
+		return $this->router->generate('mautic_integration_auth_callback', ['integration' => $this->getName()]);
+	}
+
+	public function authCallback($settings = [], $parameters = []) {
+		$settings = [
+			'grant_type' => 'password',
+			'ignore_redirecturi' => true,
+		];
+		$parameters = [
+			'username' => $this->keys['username'],
+			'password' => $this->keys['password'],
+			'platform' => 'base',
+		];
+
+		return parent::authCallback($settings, $parameters);
+	}
+
+	public function __getFormLeadFields($settings = []) {
 		return [];
 	}
 
@@ -75,14 +113,8 @@ class BrixCRMIntegration extends SugarcrmIntegration {
 	public function pushLead($lead, $config = []) {
 		try {
 			if ($this->isAuthorized()) {
-				$this->getApiHelper()->addToSugarQueue($lead);
-
-				$settings = $this->getIntegrationSettings()->getFeatureSettings();
-				if (isset($settings['sugar_sync_flag'])) {
-					$lead->addUpdatedField($settings['sugar_sync_flag'], true);
-					$leadModel = $this->factory->getModel('lead');
-					$leadModel->saveEntity($lead, false);
-				}
+				$this->getApiHelper()->addToSugarQueue($lead, 'push');
+				$this->updateIntegrationEntity($lead);
 
 				return true;
 			} else {
@@ -93,5 +125,41 @@ class BrixCRMIntegration extends SugarcrmIntegration {
 		}
 
 		return false;
+	}
+
+	public function updateIntegrationEntity(Lead $lead) {
+		$integrationEntityRepo = $this->em->getRepository('MauticPluginBundle:IntegrationEntity');
+		$integrationId = $integrationEntityRepo->getIntegrationsEntityId($this->getName(), $this->getIntegrationObject(), 'lead', $lead->getId());
+		if (!empty($integrationId)) {
+			$integrationEntity = $integrationEntityRepo->getEntity($integrationId[0]['id']);
+		} else {
+			$integrationEntity = new IntegrationEntity();
+			$integrationEntity->setDateAdded(new \DateTime());
+			$integrationEntity->setIntegration($this->getName());
+			$integrationEntity->setIntegrationEntity($this->getIntegrationObject());
+			$integrationEntity->setIntegrationEntityId('-');
+			$integrationEntity->setInternalEntity('lead');
+			$integrationEntity->setInternalEntityId($lead->getId());
+		}
+		$integrationEntity->setLastSyncDate(new \DateTime());
+
+		$this->em->persist($integrationEntity);
+		$this->em->flush($integrationEntity);
+	}
+
+	public function getIntegrationObject() {
+		return 'Lead/Contact';
+	}
+
+	public function mergeApiKeys($mergeKeys, $withKeys = [], $return = false){
+		if(array_key_exists('expires_in', $mergeKeys)){
+			$mergeKeys['expires_in'] = time()+$mergeKeys['expires_in'];
+		}
+
+		if(array_key_exists('refresh_expires_in', $mergeKeys)){
+			$mergeKeys['refresh_expires_in'] = time()+$mergeKeys['refresh_expires_in'];
+		}
+
+		return parent::mergeApiKeys($mergeKeys, $withKeys, $return);
 	}
 }
