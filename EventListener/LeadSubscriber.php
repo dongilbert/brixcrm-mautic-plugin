@@ -38,20 +38,41 @@ class LeadSubscriber extends CommonSubscriber {
 	 */
 	public static function getSubscribedEvents() {
 		return [
-			LeadEvents::LEAD_PRE_SAVE => ['onLeadPreSave', 0],
 			LeadEvents::LEAD_POST_SAVE => ['onLeadPostSave', 0],
 		];
+	}
+
+
+	/**
+	 * @param LeadEvent $event
+	 */
+	public function onLeadPostSave(LeadEvent $event) {
+		if (!$event->isNew() && (!$this->request || !$this->request->headers->has('SugarCRM'))) {
+			$this->addToSugarQueue($event);
+		}
+
+		if ($this->request && $this->request->headers->has('SugarCRM')) {
+			$this->updateIntegration($event);
+		}
 	}
 
 	/**
 	 * @param LeadEvent $event
 	 */
-	public function onLeadPreSave(LeadEvent $event) {
-		if ($this->request && $this->request->headers->has('SugarCRM')) {
-			$integration = $this->helper->getIntegrationObject('BrixCRM');
+	protected function addToSugarQueue(LeadEvent $event) {
+		$integration = $this->helper->getIntegrationObject('BrixCRM');
 
-			if ($integration && $integration->getIntegrationSettings()->getIsPublished()) {
-				$integration->updateIntegrationEntity($event->getLead());
+		if ($integration && $integration->getIntegrationSettings()->getIsPublished()) {
+			$integrationEntityRepo = $this->em->getRepository('MauticPluginBundle:IntegrationEntity');
+			$integrationId = $integrationEntityRepo->getIntegrationsEntityId($integration->getName(), $integration->getIntegrationObject(), 'lead', $event->getLead()->getId());
+
+			if (!empty($integrationId)) {
+				try {
+					$integration->getApiHelper()->addToSugarQueue($event->getLead(), 'save');
+					$integration->updateIntegrationEntity($event->getLead());
+				} catch (\Exception $e) {
+					$integration->logIntegrationError($e);
+				}
 			}
 		}
 	}
@@ -59,23 +80,11 @@ class LeadSubscriber extends CommonSubscriber {
 	/**
 	 * @param LeadEvent $event
 	 */
-	public function onLeadPostSave(LeadEvent $event) {
-		if (!$event->isNew() && (!$this->request || !$this->request->headers->has('SugarCRM'))) {
-			$integration = $this->helper->getIntegrationObject('BrixCRM');
+	protected function updateIntegration(LeadEvent $event) {
+		$integration = $this->helper->getIntegrationObject('BrixCRM');
 
-			if ($integration && $integration->getIntegrationSettings()->getIsPublished()) {
-				$integrationEntityRepo = $this->em->getRepository('MauticPluginBundle:IntegrationEntity');
-				$integrationId = $integrationEntityRepo->getIntegrationsEntityId($integration->getName(), $integration->getIntegrationObject(), 'lead', $event->getLead()->getId());
-
-				if (!empty($integrationId)) {
-					try {
-						$integration->getApiHelper()->addToSugarQueue($event->getLead(), 'save');
-						$integration->updateIntegrationEntity($event->getLead());
-					} catch (\Exception $e) {
-						$integration->logIntegrationError($e);
-					}
-				}
-			}
+		if ($integration && $integration->getIntegrationSettings()->getIsPublished()) {
+			$integration->updateIntegrationEntity($event->getLead());
 		}
 	}
 }
