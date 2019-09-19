@@ -4,12 +4,10 @@
  *     it under the terms of the GNU General Public License as published by
  *     the Free Software Foundation, either version 3 of the License, or
  *     (at your option) any later version.
- *
  *     This program is distributed in the hope that it will be useful,
  *     but WITHOUT ANY WARRANTY; without even the implied warranty of
  *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *     GNU General Public License for more details.
- *
  *     You should have received a copy of the GNU General Public License
  *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -107,6 +105,16 @@ class BrixCRMIntegration extends CrmAbstractIntegration {
 		return parent::authCallback($settings, $parameters);
 	}
 
+	public function isAuthorized() {
+		if (!$this->isConfigured()) {
+			return false;
+		}
+		//Login every time to ensure tokens are valid
+		$this->authCallback();
+
+		return parent::isAuthorized();
+	}
+
 	public function __getFormLeadFields($settings = []) {
 		return [];
 	}
@@ -161,17 +169,5 @@ class BrixCRMIntegration extends CrmAbstractIntegration {
 
 	public function getIntegrationObject() {
 		return 'Lead/Contact';
-	}
-
-	public function mergeApiKeys($mergeKeys, $withKeys = [], $return = false) {
-		if (array_key_exists('expires_in', $mergeKeys)) {
-			$mergeKeys['expires_in'] = time() + $mergeKeys['expires_in'];
-		}
-
-		if (array_key_exists('refresh_expires_in', $mergeKeys)) {
-			$mergeKeys['refresh_expires_in'] = time() + $mergeKeys['refresh_expires_in'];
-		}
-
-		return parent::mergeApiKeys($mergeKeys, $withKeys, $return);
 	}
 }
