@@ -22,9 +22,11 @@ return [
 	'services' => [
 		'events' => [
 			'mautic.brixcrm.leadbundle.subscriber' => [
-				'class' => 'MauticPlugin\MauticBrixCRMBundle\EventListener\LeadSubscriber',
+				'class' => \MauticPlugin\MauticBrixCRMBundle\EventListener\LeadSubscriber::class,
 				'arguments' => [
 					'mautic.helper.integration',
+                    'request_stack',
+                    'mautic.plugin.repository.integration_entity',
 				],
 			],
 		],

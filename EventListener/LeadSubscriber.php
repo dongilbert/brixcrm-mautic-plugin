@@ -14,23 +14,36 @@
 
 namespace MauticPlugin\MauticBrixCRMBundle\EventListener;
 
-use Mautic\CoreBundle\EventListener\CommonSubscriber;
 use Mautic\LeadBundle\Event\LeadEvent;
 use Mautic\LeadBundle\LeadEvents;
+use Mautic\PluginBundle\Entity\IntegrationEntityRepository;
 use Mautic\PluginBundle\Helper\IntegrationHelper;
+use MauticPlugin\MauticBrixCRMBundle\Integration\BrixCRMIntegration;
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 
-class LeadSubscriber extends CommonSubscriber {
+class LeadSubscriber implements EventSubscriberInterface {
 
 	/**
 	 * @var IntegrationHelper
 	 */
-	protected $helper;
+	private $helper;
 
-	/**
-	 * @param IntegrationHelper $helper
-	 */
-	public function __construct(IntegrationHelper $helper) {
-		$this->helper = $helper;
+    /**
+     * @var Request|null
+     */
+	private $request;
+
+    /**
+     * @var IntegrationEntityRepository
+     */
+	private $integrationEntityRepository;
+
+	public function __construct(IntegrationHelper $helper, RequestStack $requestStack, IntegrationEntityRepository $integrationEntityRepository) {
+		$this->helper  = $helper;
+		$this->request = $requestStack->getCurrentRequest();
+		$this->integrationEntityRepository = $integrationEntityRepository;
 	}
 
 	/**
@@ -60,11 +73,11 @@ class LeadSubscriber extends CommonSubscriber {
 	 * @param LeadEvent $event
 	 */
 	protected function addToSugarQueue(LeadEvent $event) {
+	    /** @var BrixCRMIntegration $integration */
 		$integration = $this->helper->getIntegrationObject('BrixCRM');
 
 		if ($integration && $integration->getIntegrationSettings()->getIsPublished()) {
-			$integrationEntityRepo = $this->em->getRepository('MauticPluginBundle:IntegrationEntity');
-			$integrationId = $integrationEntityRepo->getIntegrationsEntityId($integration->getName(), $integration->getIntegrationObject(), 'lead', $event->getLead()->getId());
+			$integrationId = $this->integrationEntityRepository->getIntegrationsEntityId($integration->getName(), $integration->getIntegrationObject(), 'lead', $event->getLead()->getId());
 
 			if (!empty($integrationId)) {
 				try {
@@ -81,6 +94,7 @@ class LeadSubscriber extends CommonSubscriber {
 	 * @param LeadEvent $event
 	 */
 	protected function updateIntegration(LeadEvent $event) {
+	    /** @var BrixCRMIntegration $integration */
 		$integration = $this->helper->getIntegrationObject('BrixCRM');
 
 		if ($integration && $integration->getIntegrationSettings()->getIsPublished()) {
