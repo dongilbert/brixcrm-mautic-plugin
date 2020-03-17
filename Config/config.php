@@ -20,8 +20,30 @@ return [
 	'version' => '2.0',
 	'author' => 'BrixCRM',
 	'services' => [
-		'events' => [
-			'mautic.brixcrm.leadbundle.subscriber' => [
+        'integrations' => [
+            'mautic.integration.brixcrm' => [
+                'class'     => \MauticPlugin\MauticBrixCRMBundle\Integration\BrixCRMIntegration::class,
+                'arguments' => [
+                    'event_dispatcher',
+                    'mautic.helper.cache_storage',
+                    'doctrine.orm.entity_manager',
+                    'session',
+                    'request_stack',
+                    'router',
+                    'translator',
+                    'logger',
+                    'mautic.helper.encryption',
+                    'mautic.lead.model.lead',
+                    'mautic.lead.model.company',
+                    'mautic.helper.paths',
+                    'mautic.core.model.notification',
+                    'mautic.lead.model.field',
+                    'mautic.plugin.model.integration_entity',
+                ],
+            ],
+        ],
+	    'events' => [
+			'mautic.integration.brixcrm.leadbundle.subscriber' => [
 				'class' => \MauticPlugin\MauticBrixCRMBundle\EventListener\LeadSubscriber::class,
 				'arguments' => [
 					'mautic.helper.integration',
