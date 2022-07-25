@@ -3,8 +3,5 @@
   "type": "mautic-plugin",
   "extra": {
     "install-directory-name": "MauticBrixCRMBundle"
-  },
-  "require": {
-    "mautic/composer-plugin": "*"
   }
 }
